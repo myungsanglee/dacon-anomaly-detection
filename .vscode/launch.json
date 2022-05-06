@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Train Classifier",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--cfg", "configs/darknet19_dacon-anomaly.yaml"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Test Classifier",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--cfg", "configs/darknet19_dacon-anomaly.yaml", "--ckpt", "saved/darknet19_dacon-anomaly/version_1/checkpoints/last.ckpt"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
