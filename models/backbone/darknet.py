@@ -59,7 +59,7 @@ class _Darknet19(nn.Module):
         return x
 
 
-def darknet19(in_channels, num_classes=1000):
+def darknet19(in_channels=3, num_classes=1000):
     model = _Darknet19(in_channels, num_classes)
     weight_initialize(model)
     return model

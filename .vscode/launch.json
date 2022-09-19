@@ -17,7 +17,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["--cfg", "configs/darknet19_dacon-anomaly.yaml", "--ckpt", "saved/darknet19_dacon-anomaly/version_1/checkpoints/last.ckpt"],
+            "args": ["--cfg", "configs/darknet19_dacon-anomaly.yaml", "--ckpt", "saved/darknet19_dacon-anomaly/version_0/checkpoints/epoch=165-step=19919.ckpt"],
             "console": "integratedTerminal"
         }
     ]

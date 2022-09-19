@@ -1,4 +1,4 @@
-model : 'darknet19'
+model : 'resnet50'
 dataset_name : 'dacon-anomaly'
 input_size: 640
 in_channels: 3
@@ -9,7 +9,7 @@ epochs: 1000
 
 dataset_dir : '/home/fssv2/myungsang/datasets/dacon_anomaly_detection/data'
 workers: 32 # number of workers to generate data
-batch_size: 32
+batch_size: 16
 
 save_dir : './saved' # dir for saving log, weights
 save_freq: 5
@@ -23,7 +23,7 @@ trainer_options:
 #     - 'SWA'
 
 accelerator: 'gpu' # 'auto', 'gpu', 'cpu'
-devices: [0] # 'auto': use all, [0]: use 0 gpu, [0, 1]: use 0, 1 gpus
+devices: [1] # 'auto': use all, [0]: use 0 gpu, [0, 1]: use 0, 1 gpus
 
 optimizer: 'adam'
 optimizer_options:

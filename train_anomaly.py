@@ -1,5 +1,7 @@
 import argparse
+from operator import mod
 import platform
+from turtle import back
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -7,7 +9,8 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, St
 from pytorch_lightning.plugins import DDPPlugin
 import torchsummary
 
-from module.classifier import Classifier
+from module.anomaly_module import AnomalyModule01, AnomalyModule02
+from models.anomaly_model import AnomalyModel01, AnomalyModel02, AnomalyModel03
 from utils.utility import make_model_name
 from utils.module_select import get_model, get_data_module
 from utils.yaml_helper import get_configs
@@ -34,11 +37,37 @@ def train(cfg):
         input_size=cfg['input_size']
     )
 
-    model = get_model(cfg['model'])(in_channels=cfg['in_channels'], num_classes=cfg['num_classes'])
-    
+    # model = AnomalyModel01(
+    #     backbone=get_model(cfg['model']),
+    #     in_channels=cfg['in_channels'],
+    #     num_classes=cfg['num_classes'],
+    #     input_size=cfg['input_size']
+    # )
+
+    # model = AnomalyModel02(
+    #     backbone=get_model(cfg['model']),
+    #     in_channels=cfg['in_channels'],
+    #     num_classes=cfg['num_classes'],
+    #     num_state=cfg['num_state'],
+    #     input_size=cfg['input_size']
+    # )
+
+    model = AnomalyModel03(
+        backbone=get_model(cfg['model']),
+        in_channels=cfg['in_channels'],
+        num_classes=cfg['num_classes'],
+        num_state=cfg['num_state'],
+        input_size=cfg['input_size']
+    )
+
     torchsummary.summary(model, (cfg['in_channels'], cfg['input_size'], cfg['input_size']), batch_size=1, device='cpu')
     
-    model_module = Classifier(
+    # model_module = AnomalyModule01(
+    #     model=model,
+    #     cfg=cfg
+    # )
+
+    model_module = AnomalyModule02(
         model=model,
         cfg=cfg
     )
@@ -46,9 +75,9 @@ def train(cfg):
     callbacks = [
         LearningRateMonitor(logging_interval='epoch'),
         ModelCheckpoint(
-            # monitor='loss', 
+            monitor='val_loss', 
             save_last=True, 
-            # every_n_epochs=cfg['save_freq']
+            every_n_epochs=cfg['save_freq']
         )
     ]
 
@@ -61,7 +90,7 @@ def train(cfg):
         devices=cfg['devices'],
         plugins=DDPPlugin(find_unused_parameters=False) if platform.system() != 'Windows' else None,
         callbacks=callbacks,
-        # **cfg['trainer_options']
+        **cfg['trainer_options']
     )
 
     trainer.fit(model_module, data_module)

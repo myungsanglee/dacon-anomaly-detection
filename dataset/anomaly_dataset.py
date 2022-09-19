@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys  
 from glob import glob
 sys.path.append(os.getcwd())
@@ -12,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 
-class DaconAnomalyDataset(Dataset):
+class AnomalyDataset01(Dataset):
     def __init__(self, dataset_dir, transforms, mode):
         super().__init__()
         self.transforms = transforms
@@ -44,7 +45,43 @@ class DaconAnomalyDataset(Dataset):
         return transformed, label
 
 
-class DaconAnomaly(pl.LightningDataModule):
+class AnomalyDataset02(Dataset):
+    def __init__(self, dataset_dir, transforms, mode):
+        super().__init__()
+        self.transforms = transforms
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'name2label.pkl'), 'rb') as f:
+            self.name2label = pickle.load(f)
+        self.mode = mode
+
+        if mode == 'train':
+            self.img_path_list = sorted(glob(os.path.join(dataset_dir, 'train/*/*/*.png')))
+
+        elif mode == 'valid':
+            self.img_path_list = sorted(glob(os.path.join(dataset_dir, 'valid/*/*/*.png')))
+
+        elif mode == 'test':
+            self.img_path_list = sorted(glob(os.path.join(dataset_dir, 'test/*.png')))
+            self.labels = ["tmp"]*len(self.img_path_list)
+
+    def __len__(self):
+        return len(self.img_path_list)
+
+    def __getitem__(self, index):
+        img_file = self.img_path_list[index]
+        img = cv2.imread(img_file)
+        transformed = self.transforms(image=img)['image']
+
+        if self.mode == 'test':
+            label = 'tmp'
+        else:
+            img_file_list = img_file.split(os.sep)
+            label = self.name2label[img_file_list[-3]][img_file_list[-2]]
+
+        return transformed, label
+
+
+
+class AnomalyDataModule(pl.LightningDataModule):
     def __init__(self, dataset_dir, workers, batch_size, input_size):
         super().__init__()
         self.dataset_dir = dataset_dir
@@ -55,10 +92,10 @@ class DaconAnomaly(pl.LightningDataModule):
     def setup(self, stage=None):
         train_transforms = albumentations.Compose([
             albumentations.HorizontalFlip(),
-            albumentations.Blur(),
+            # albumentations.Blur(),
             albumentations.ShiftScaleRotate(),
             albumentations.GaussNoise(),
-            albumentations.Cutout(max_h_size=int(self.input_size*0.125), max_w_size=int(self.input_size*0.125)),
+            # albumentations.Cutout(max_h_size=int(self.input_size*0.125), max_w_size=int(self.input_size*0.125)),
             # albumentations.ElasticTransform(),
             albumentations.RandomResizedCrop(self.input_size, self.input_size, (0.8, 1)),
             albumentations.Normalize(0, 1),
@@ -71,19 +108,19 @@ class DaconAnomaly(pl.LightningDataModule):
             albumentations.pytorch.ToTensorV2(),
         ],)
 
-        self.train_dataset = DaconAnomalyDataset(
+        self.train_dataset = AnomalyDataset02(
             dataset_dir=self.dataset_dir,
             transforms=train_transforms,
             mode='train'
         )
 
-        # self.valid_dataset = DaconAnomalyDataset(
-        #     dataset_dir=self.dataset_dir,
-        #     transforms=valid_transform,
-        #     is_train=False
-        # )
+        self.valid_dataset = AnomalyDataset02(
+            dataset_dir=self.dataset_dir,
+            transforms=valid_transform,
+            mode='valid'
+        )
 
-        self.test_dataset = DaconAnomalyDataset(
+        self.test_dataset = AnomalyDataset02(
             dataset_dir=self.dataset_dir,
             transforms=valid_transform,
             mode='test'
@@ -99,15 +136,15 @@ class DaconAnomaly(pl.LightningDataModule):
             pin_memory=self.workers > 0
         )
 
-    # def val_dataloader(self):
-    #     return DataLoader(
-    #         self.valid_dataset,
-    #         batch_size=self.batch_size,
-    #         shuffle=False,
-    #         num_workers=self.workers,
-    #         persistent_workers=self.workers > 0,
-    #         pin_memory=self.workers > 0
-    #     )
+    def val_dataloader(self):
+        return DataLoader(
+            self.valid_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.workers,
+            persistent_workers=self.workers > 0,
+            pin_memory=self.workers > 0
+        )
 
     def test_dataloader(self):
         return DataLoader(
@@ -121,48 +158,31 @@ class DaconAnomaly(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
-    input_size = 64
+    input_size = 640
 
-    train_transform = albumentations.Compose([
-        albumentations.HorizontalFlip(),
-        albumentations.Blur(),
-        albumentations.ShiftScaleRotate(),
-        albumentations.GaussNoise(),
-        albumentations.Cutout(max_h_size=int(input_size*0.125), max_w_size=int(input_size*0.125)),
-        # albumentations.ElasticTransform(),
-        albumentations.RandomResizedCrop(input_size, input_size, (0.8, 1)),
-        albumentations.Normalize(0, 1),
-        albumentations.pytorch.ToTensorV2(),
-    ],)
-
-    origin_transform = albumentations.Compose([
-        albumentations.Resize(input_size, input_size, always_apply=True),
-        albumentations.Normalize(0, 1),
-        albumentations.pytorch.ToTensorV2(),
-    ],)
-
-    train_loader = DataLoader(
-        DaconAnomalyDataset(
-            dataset_dir='/home/fssv2/myungsang/datasets/dacon_anomaly_detection',
-            transforms=train_transform,
-            is_train=True
-        ),
+    data_module = AnomalyDataModule(
+        dataset_dir=os.path.expanduser(os.path.join('~', 'myungsang/datasets/dacon_anomaly_detection/data')),
+        workers=32,
         batch_size=1,
-        shuffle=False
+        input_size=input_size
     )
+    data_module.prepare_data()
+    data_module.setup()
 
-    # label_name_path = '/home/fssv2/myungsang/datasets/dacon_anomaly_detection/dacon_anomaly.names'
-    # with open(label_name_path, 'r') as f:
-    #     label_name_list = f.read().splitlines()
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'label2name.pkl'), 'rb') as f:
+            label2name = pickle.load(f)
 
-    for train_sample in train_loader:
+    for train_sample in data_module.train_dataloader():
+    # for train_sample in data_module.val_dataloader():
+    # for train_sample in data_module.test_dataloader():
         train_x, train_y = train_sample
 
         img = train_x[0].numpy()   
         img = (np.transpose(img, (1, 2, 0))*255.).astype(np.uint8).copy()
 
-        print(train_y)
-        # print(f'label: {label_name_list[train_y[0]]}\n')
+        # print(train_y)
+        # print(int(train_y[0]), int(train_y[1]))
+        print(label2name[int(train_y[0])][int(train_y[1])])
 
         cv2.imshow('Train', img)
         key = cv2.waitKey(0)
